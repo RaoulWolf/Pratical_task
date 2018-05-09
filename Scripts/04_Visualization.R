@@ -20,14 +20,10 @@ data_final.sf %>%
   guides(alpha = "none") +
   theme_bw()
 
-download.file()
+# download.file(url = "https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_NOR_0_sf.rds", 
+#               dest = "Data/gadm36_NOR_0_sf.rds")
 
-# download.file(url = "https://www.eea.europa.eu/data-and-maps/data/eea-reference-grids-2/gis-files/norway-shapefile/at_download/file",
-#               dest = "Data/Norway_shapefile.zip")
-# 
-# unzip("Data/Norway_shapefile.zip", exdir = "Data/")
-
-NO_shape <- st_read("Data/NOR_adm/NOR_adm0.shp") %>% 
+NO_shape <- readRDS("Data/gadm36_NOR_0_sf.rds") %>% 
   st_transform("+proj=laea +datum=WGS84 +no_defs")
 
 NO_shape
@@ -50,10 +46,10 @@ the_box <- cbind(c(min(data_final.sf$GPS_Longitude),
   st_transform(crs = "+proj=laea") %>% 
   st_bbox()
 
-# NO_shape %>% 
+# NO_shape %>%
 #   ggplot() +
 #   geom_sf() +
-#   coord_sf(xlim = c(the_box[1], the_box[3]), 
+#   coord_sf(xlim = c(the_box[1], the_box[3]),
 #            ylim = c(the_box[2], the_box[4])) +
 #   theme_bw()
 
@@ -76,4 +72,4 @@ NO_shape %>%
   theme(panel.background = element_rect(fill = "cadetblue1"), 
         panel.grid = element_line(color = "white", size = 1))
 
-ggsave()
+# ggsave("Figures/Final_plot.png", width = 7, height = 3.5, units = "in")
