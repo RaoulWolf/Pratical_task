@@ -312,7 +312,7 @@ $(document).ready(function () {
 
 
 <p><em>I’ll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.</em></p>
-<p>Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The <code>tidyverse</code> package collection provides a variety of tools from packages like <code>dplyr</code> and <code>tidyr</code>, <code>readxl</code> provides a robust method to directly read from Excel files, such as <code>.xls</code> and <code>.xlsx</code> files, and <code>lubridate</code> provides intuitive tools for handling of dates and times. To access the API we need functions from the <code>httr</code> package, and eventually we need to fit generalized linear models (GAM) from the <code>mgcv</code> package. <code>sf</code> helps in the graphical display of the measurement sites.</p>
+<p>Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The <code>tidyverse</code> package collection provides a variety of tools from packages like <code>dplyr</code> and <code>tidyr</code>, <code>readxl</code> provides a robust method to directly read from Excel files, such as <code>.xls</code> and <code>.xlsx</code> files, and <code>lubridate</code> provides intuitive tools for handling of dates and times. To access the API we need functions from the <code>httr</code> package, and eventually we need to fit generalized linear models (GAM) from the <code>mgcv</code> package. For data base related work, the <code>DBI</code> package provides the necessary interface, and <code>RSQLite</code> the necessary functionalities. Finally, <code>sf</code> helps in the graphical display of the measurement sites.</p>
 <pre class="r"><code>library(tidyverse)</code></pre>
 <pre><code>## ── Attaching packages ───────────────────────────────────────────── tidyverse 1.2.1 ──</code></pre>
 <pre><code>## ✔ ggplot2 2.2.1.9000     ✔ purrr   0.2.4     
@@ -339,7 +339,9 @@ library(mgcv)</code></pre>
 ## 
 ##     collapse</code></pre>
 <pre><code>## This is mgcv 1.8-23. For overview type 'help(&quot;mgcv-package&quot;)'.</code></pre>
-<pre class="r"><code>library(sf)</code></pre>
+<pre class="r"><code>library(DBI)
+library(RSQLite)
+library(sf)</code></pre>
 <pre><code>## Linking to GEOS 3.6.2, GDAL 2.2.4, proj.4 5.0.1</code></pre>
 <div id="reading-in-the-data" class="section level1">
 <h1>1 Reading in the data</h1>
@@ -803,13 +805,42 @@ data_final</code></pre>
 ##  3rd Qu.:100.00   3rd Qu.: 1.65164   3rd Qu.:28.6319  
 ##  Max.   :100.00   Max.   : 2.12296   Max.   :41.2924  
 ##  NA's   :6</code></pre>
+<p>Finally, we can write the corrected, final data as an Excel-compatible <code>.csv</code> file.</p>
+<pre class="r"><code>data_final %&gt;% 
+  write_excel_csv(path = &quot;../Data/data_final.csv&quot;)</code></pre>
 </div>
 </div>
-<div id="write-the-new-file-into-an-excel-file-and-export-it-to-an-sqlite-database" class="section level1">
-<h1>3 Write the new file into an Excel file and export it to an SQLite database</h1>
-<div id="calculate-average-minimum-and-maximum-chart-datum-in-sqlite" class="section level2">
-<h2>3.1 Calculate average, minimum and maximum chart datum in SQLite</h2>
-</div>
+<div id="calculate-average-minimum-and-maximum-water-level-in-sqlite" class="section level1">
+<h1>3 Calculate average, minimum and maximum water level in SQLite</h1>
+<p>First, we create a in-memory SQLite database and store the final data inside it.</p>
+<pre class="r"><code>Local_Database &lt;- dbConnect(SQLite(), &quot;:memory:&quot;)
+
+Local_Database %&gt;% 
+  dbWriteTable(&quot;data_final&quot;, data_final)</code></pre>
+<p>Let’s see if the data is actually in the database. We could also use the <code>dbReadTable()</code> function,</p>
+<pre class="r"><code>Local_Database %&gt;% 
+  dbListTables()</code></pre>
+<pre><code>## [1] &quot;data_final&quot;</code></pre>
+<pre class="r"><code>Local_Database %&gt;% 
+  dbListFields(&quot;data_final&quot;)</code></pre>
+<pre><code>##  [1] &quot;Date&quot;            &quot;Time&quot;            &quot;Substrate_Type&quot; 
+##  [4] &quot;GPS_Latitude&quot;    &quot;GPS_Longitude&quot;   &quot;Depth&quot;          
+##  [7] &quot;Comment&quot;         &quot;Kelp_Percentage&quot; &quot;Water_Level&quot;    
+## [10] &quot;Corrected_Depth&quot;</code></pre>
+<p>For the final step, we send a query to the database and fetch its response; in this case, the average, minimum, and maximum of the <code>Water_Level</code>s, which we have used above to correct the water depth measurements.</p>
+<pre class="r"><code>Query &lt;- Local_Database %&gt;% 
+  dbSendQuery(&quot;SELECT avg(Water_Level), min(Water_Level), max(Water_Level) FROM data_final&quot;) 
+
+Query %&gt;% 
+  dbFetch()</code></pre>
+<pre><code>##   avg(Water_Level) min(Water_Level) max(Water_Level)
+## 1         1.108192      -0.01121305         2.122958</code></pre>
+<p>To tidy things up, we now also clear the results and disconnect from the database</p>
+<pre class="r"><code>Query %&gt;% 
+  dbClearResult()
+
+Local_Database %&gt;% 
+  dbDisconnect()</code></pre>
 </div>
 <div id="visualize-the-sampling-points-on-a-map" class="section level1">
 <h1>4 Visualize the sampling points on a map</h1>

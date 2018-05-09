@@ -81,3 +81,5 @@ data_final %>%
   summary()
 
 # saveRDS(data_final, file = "Data/data_final.RData")
+
+# write_excel_csv(data_final, path = "Data/data_final.csv")

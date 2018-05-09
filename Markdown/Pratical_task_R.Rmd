@@ -11,13 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *I'll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.*
 
-Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr` and `tidyr`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. `sf` helps in the graphical display of the measurement sites. 
+Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr` and `tidyr`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. For data base related work, the `DBI` package provides the necessary interface, and `RSQLite` the necessary functionalities. Finally, `sf` helps in the graphical display of the measurement sites. 
 ```{r}
 library(tidyverse)
 library(readxl)
 library(lubridate)
 library(httr)
 library(mgcv)
+library(DBI)
+library(RSQLite)
 library(sf)
 ```
 
@@ -240,9 +242,50 @@ data_final
 data_final %>% summary()
 ```
 
-# 3 Write the new file into an Excel file and export it to an SQLite database
+Finally, we can write the corrected, final data as an Excel-compatible `.csv` file.
+```{r}
+data_final %>% 
+  write_excel_csv(path = "../Data/data_final.csv")
+```
 
-## 3.1 Calculate average, minimum and maximum chart datum in SQLite
+
+# 3 Calculate average, minimum and maximum water level in SQLite
+
+First, we create a in-memory SQLite database and store the final data inside it.
+```{r}
+Local_Database <- dbConnect(SQLite(), ":memory:")
+
+Local_Database %>% 
+  dbWriteTable("data_final", data_final)
+```
+
+Let's see if the data is actually in the database. We could also use the `dbReadTable()` function, 
+```{r}
+Local_Database %>% 
+  dbListTables()
+
+Local_Database %>% 
+  dbListFields("data_final")
+```
+
+For the final step, we send a query to the database and fetch its response; in this case, the average, minimum, and maximum of the `Water_Level`s, which we have used above to correct the water depth measurements.
+```{r}
+Query <- Local_Database %>% 
+  dbSendQuery("SELECT avg(Water_Level), min(Water_Level), max(Water_Level) FROM data_final") 
+
+Query %>% 
+  dbFetch()
+```
+
+To tidy things up, we now also clear the results and disconnect from the database
+```{r}
+Query %>% 
+  dbClearResult()
+
+Local_Database %>% 
+  dbDisconnect()
+```
+
 
 # 4 Visualize the sampling points on a map
 
