@@ -1,0 +1,313 @@
+---
+title: "The Assignment in R"
+author: "Raoul Wolf"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*I'll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.*
+
+Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr` and `tidyr`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. `sf` helps in the graphical display of the measurement sites. 
+```{r}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(httr)
+library(mgcv)
+library(sf)
+```
+
+# 1 Reading in the data
+
+First we need to read in the Excel sheet, which is inside a `Data` folder within my RStudio project. We take a direct look at the raw data for a first sanity check of the data.
+```{r}
+data_raw <- read_excel("../Data/tidal_sample.xlsx")
+
+data_raw
+```
+
+There are a couple of issues with the way the data is recognized by R. The `GPS Latitude`, `GPS Longitude` and `depth` columns were recognized as characters, and the decimal sign remains a comma, instead of a point. The column names consist of both English and Norwegian titles, and the columns for the GPS coordinates have a space in their titles, which could cause problems downstream. Time for some tidying of the data!
+
+
+## 1.1 Tidying up the data
+
+First, we `rename()` some of the column names to have them in a uniform way. In the next step, we `mutate()` the GPS coordinates and depth values, swapping the comma for a point using `str_replace()` and turning the columns into numeric (`as.double()`) columns. As the column for the kelp percentage did not contain decimals, we can directly convert it to numeric. At the same time, we turn the `Date` column into an actual date column using the `dmy()` (for `d`ay `m`onth `y`ear) function.
+```{r}
+data <- data_raw %>%
+  rename(Substrate_Type = Substrattype, 
+         GPS_Latitude = `GPS Latitude`, 
+         GPS_Longitude = `GPS Longitude`, 
+         Depth = depth,
+         Comment = `Kommentar til observasjon (evt fremmede arter)`, 
+         Kelp_Percentage = `Anslått stortaresubstrat (%)`) %>% 
+  mutate(Date = dmy(Date), 
+         GPS_Latitude = str_replace(string = GPS_Latitude, pattern = ",", replacement = "."),
+         GPS_Latitude = as.double(GPS_Latitude),
+         GPS_Longitude = str_replace(string = GPS_Longitude, pattern = ",", replacement = "."),
+         GPS_Longitude = as.double(GPS_Longitude),
+         Depth = str_replace(string = Depth, pattern = ",", replacement = "."),
+         Depth = as.double(Depth),
+         Kelp_Percentage = as.double(Kelp_Percentage))
+
+data
+```
+
+The tidying was successful and the data looks good. The warning messages likely occured because of missing values in the GPS coordinates and depth columns. For another sanity check, we take a look at the `summary()` output.
+```{r}
+data %>% summary()
+```
+
+Multiple issues here. Two values without `Date` seem dubious, as do the extreme values for the GPS coordinates; likely, someone mixed up longitude and latitude in the report. Let's analyse the raw data of the dates as well as the tidied data of the coordinates for more insight.
+```{r}
+data_raw %>% 
+  select(Date) %>% 
+  unique()
+
+data %>% 
+  select(GPS_Longitude) %>% 
+  arrange(desc(GPS_Longitude))
+
+data %>% 
+  select(GPS_Latitude) %>% 
+  arrange(GPS_Latitude)
+```
+
+The `<NULL>` value for the date seems like a "real" missing value, but there seems to be one date which has been specified differently. This needs to be adjusted. As suspected, one observation seems to have swapped the longitude and latitude information. 
+
+First, we now take care of the different date value. The easiest way is to repeat the original tidying up of the data set, but specifying the `Date` conversion differently. This time we use `parse_date_time()` to explicitly specify both ways in which the dates were specified, and set the time zone. In addition, we include an additional `mutate()` to take care of the GPS coordinate swap. For lack of a more elegant version this works by creating dummy columns based on conditions defined inside `case_when()`. These dummy columns are removed in the last `select()` step.
+
+```{r}
+data <- data_raw %>%
+  rename(Substrate_Type = Substrattype, 
+         GPS_Latitude = `GPS Latitude`, 
+         GPS_Longitude = `GPS Longitude`, 
+         Depth = depth,
+         Comment = `Kommentar til observasjon (evt fremmede arter)`, 
+         Kelp_Percentage = `Anslått stortaresubstrat (%)`) %>% 
+  mutate(Date = parse_date_time(Date, orders = c("d.m.Y", "Y-m-d"), tz = "Europe/Oslo"), 
+         GPS_Latitude = str_replace(string = GPS_Latitude, pattern = ",", replacement = "."),
+         GPS_Latitude = as.double(GPS_Latitude),
+         GPS_Longitude = str_replace(string = GPS_Longitude, pattern = ",", replacement = "."),
+         GPS_Longitude = as.double(GPS_Longitude),
+         Depth = str_replace(string = Depth, pattern = ",", replacement = "."),
+         Depth = as.double(Depth),
+         Kelp_Percentage = as.double(Kelp_Percentage)) %>% 
+  mutate(GPS_Latitude2 = case_when(GPS_Latitude < 10 ~ GPS_Longitude, 
+                                   GPS_Latitude > 10 ~ GPS_Latitude), 
+         GPS_Longitude2 = case_when(GPS_Longitude > 60 ~ GPS_Latitude, 
+                                    GPS_Longitude < 60 ~ GPS_Longitude), 
+         GPS_Latitude = GPS_Latitude2, 
+         GPS_Longitude = GPS_Longitude2) %>% 
+  select(-GPS_Latitude2, -GPS_Longitude2)
+
+data
+
+data %>% 
+  summary()
+```
+
+It looks like the issues have been fixed and we can proceed further. The final step in tidying up is to bring all the necessary columns into an adequate form for using it with the API in the next step. This includes the re-transformation of `Date` into a character, as well as dropping the observation (`drop_na()`) with either missing data in `Date`, `Time`, `GPS_Longitude`, `GPS_Latitude`, or `Depth`.
+```{r}
+data_tidy <- data %>%
+  drop_na(Date, Time, GPS_Latitude, GPS_Longitude, Depth) %>%
+  mutate(Date = as.character(Date))
+
+data_tidy
+```
+
+This looks good and we can continue with setting everything up for the API connection!
+
+# 2 Connect to the API and retrieve the response
+
+In order to retrieve the information for every observation, we need to construct individual API calls for each observation. We'll do this by creating dummy columns to later assemble the final URL for the API call by pasting the columns together. Each dummy column thus represents a functionality of the API, as specified in the [user instructions](http://api.sehavniva.no/tideapi_protocol.pdf "Tide API Protocol"). The precise API we use is the *Water level data in position*. The different variables were chosen as follows:
+
+* `API` is the initial address to setup the API request
+* `lat` and `lon` are `GPS_Latitude` and `GPS_Longitude` values, respectively
+* `datatype` indicates what type of data should be used. Here, we use the `OBS`erved data for every position. An alternative would have been the `PRE`dicted values.
+* `file` is acutally the file format, which here is specified as the (raw) *internt tekstformat for Kartverket*. This makes it easier to immediately access the data from within R *[Note: `httr()` does not yet support .xls files...]*
+* `lang` makes the API response in English
+* `dst`: *if this parameter is ‘1’ the times will be shown in time zone utc+2 in the daylight savings time period* 
+* `refcode` specifies which standard level to use, and `CD` specifies the use of the chart datum
+* `fromtime` gives the start point from which to retrieve the data, and
+* `totime` gives the finish point; we construct these two variables from the date and the time for the whole day, i.e., from `00:00` to `23:59`
+* `interval` is the time interval, in this case 10 minutes
+
+The URL is then constructed from these variables for each observation.
+
+```{r}
+data_API <- data_tidy %>%
+  mutate(API = "http://api.sehavniva.no/tideapi.php?tide_request=locationdata", 
+         lat = GPS_Latitude,
+         lon = GPS_Longitude,
+         datatype = "OBS",
+         file = "NSKV",
+         lang = "en",
+         dst = 1,
+         refcode = "CD",
+         fromtime = str_c(Date, "T", "00:00"),
+         totime = str_c(Date, "T", "23:59"),
+         interval = 10) %>%
+  mutate(URL = str_c(API, "&lat=", lat, "&lon=", lon, "&datatype=", datatype,
+                     "&file=", file, "&lang=", lang, "&dst=", dst,
+                     "&refcode=", refcode, "&fromtime=", fromtime,
+                     "&totime=", totime,
+                     "&interval=", interval))
+
+data_API
+```
+
+This looks good (at least there were no errors). No it's time to call the API, using `GET()`.
+```{r}
+data_API <- data_API %>% 
+  mutate(API_GET = map(URL, ~ GET(.)))
+
+data_API
+```
+
+It worked! Now let's access the information and use it to correct the depth measurments.
+
+## 2.1 Use the API data to model the chart datum
+
+To access the retrieved data, it's easiest to specify a custom function to call for each observation in the data set. The following function removes some of the "meta data" and cleans up the returned table considerably.
+
+```{r}
+read_the_API_data <- function(df) {
+  df2 <- content(df) %>% 
+    read_delim(delim = "\r\n") %>% 
+    filter(row_number() >= 10)
+  colnames(df2) <- "Date"
+  df3 <- df2 %>% 
+    filter(str_detect(string = Date, pattern = "_") == FALSE) %>% 
+    separate(Date, into = c("Date", "Tide"), sep = "  ") %>% 
+    mutate(Hour = str_sub(string = Date, start = 12, end = 13), 
+           Minute = str_sub(string = Date, start = 14, end = 15)) %>% 
+    unite(Time, Hour, Minute, sep = ":") %>% 
+    mutate(Date = ymd_hm(Date), 
+           Time = hm(Time),
+           Time = (as.double(Time) / 60) / 60,
+           Decimal_Date = decimal_date(Date), 
+           Tide = as.double(Tide))
+  return(df3)
+}
+```
+
+Let's try it out using `map()`.
+```{r}
+data_API <- data_API %>%
+  mutate(API_Data = map(API_GET, ~ read_the_API_data(.)))
+
+data_API
+```
+
+No errors, no warning, we're happy for the time being. We now have a temporal data set for the water level of the day for each observation. To get a approximately correct value with which to correct the measured depth, we have to create a function based on the data retrieved from the API. For tidal data like this (going up and down over time), it makes sense to use a "simple" generalized additive model (GAM), which can handle this sort of pattern. Since we use this GAM for predictions only, and not (!) to draw statistical conclusions, we can accept a certain amout of overfitting to get a good predicted value for the water level at the time of measurement. But first, we need to specify a convenience function to create a GAM for each observational element.
+```{r}
+GAM_from_API_Data <- function(df) {
+  gam(formula = Tide ~ s(Time, k = 24), data = df)
+}
+```
+
+Let's put it in action and see what we get. Note that we wrap the function into `possibly()` to not break the entire calculation in case of missing values for some of the observations.
+```{r}
+data_API <- data_API %>%
+  mutate(API_GAM = map(API_Data, possibly(~ GAM_from_API_Data(.), otherwise = NA))) 
+data_API
+```
+
+No complaints, and it seems like for every observation reasonable data could be retrieved (no errors, warnings). We now have individual water level GAMs for each observation. Let's use these models to predict the water level at the time of measuring the water depth. Again we use `possibly()` as a safety measure
+```{r}
+data_API <- data_API %>% 
+  mutate(Water_Level = map2_dbl(API_GAM, (as.double(hm(Time)) / 60) / 60, 
+                                possibly(~ predict(.x, newdata = tibble(Time = .y)) / 100, 
+                                       otherwise = NA)), 
+         Corrected_Depth = Depth - Water_Level)
+
+data_API
+```
+
+Looks like we have everything we wanted! Now let's clean up the data (remove some of the now unnecessary columns) and make it ready to store in an SQLite database. We also now change the `Date` column back to a "proper" date column.
+```{r}
+data_final <- data_API %>% 
+  select(-API, -lat, -lon, -datatype, -file, -lang, -dst, -refcode, -fromtime, 
+         -totime, -interval, -URL, -API_GET, -API_Data, -API_GAM) %>% 
+  mutate(Date = ymd(Date))
+
+data_final
+
+data_final %>% summary()
+```
+
+# 3 Write the new file into an Excel file and export it to an SQLite database
+
+## 3.1 Calculate average, minimum and maximum chart datum in SQLite
+
+# 4 Visualize the sampling points on a map
+
+For visualization, we have to transform the data set into a simple feature (`sf`) object. These objects are able to process more complex geometric projections. Here, we'll use the *Lambert azimuthal equal-area projection* (LAEA) for correct display of the area.  
+```{r}
+data_final.sf <- data_final %>% 
+  st_as_sf(coords = c("GPS_Longitude", "GPS_Latitude"), remove = FALSE, crs = "+proj=longlat +datum=WGS84 +no_defs") %>% 
+  st_transform("+proj=laea")
+
+data_final.sf
+```
+
+Looks like everything is there. We now need a sufficiently good map of Norway, ideally in `.shp` format. Luckily the Europen Environment Agency [offers such a map](https://www.eea.europa.eu/data-and-maps/data/eea-reference-grids-2/gis-files/norway-shapefile/at_download/file "Norway shapefile"). Once downloaded with `download.file()` and unzipped with `unzip()`, the files can be used and adequatly manipulated. *Note that the download and unzipping part has been commented out*
+```{r}
+# download.file(url = "https://www.eea.europa.eu/data-and-maps/data/eea-reference-grids-2/gis-files/norway-shapefile/at_download/file", 
+#               dest = "Data/Norway_shapefile.zip")
+# 
+# unzip("Data/Norway_shapefile.zip", exdir = "Data/")
+
+NO_shape <- st_read("../Data/NOR_adm/NOR_adm0.shp") %>% 
+  st_transform("+proj=laea +datum=WGS84 +no_defs")
+
+NO_shape
+```
+
+Now we're almost good to go. But instead of plotting the location of the sample points in the entire Norway, we want to "zoom" into the map and get a close-up of the locations. For this, we need to define the corner points of the area of the measurment coordinates, and transform them to the LAEA format.
+```{r}
+the_box <- cbind(c(min(data_final.sf$GPS_Longitude), 
+                   max(data_final.sf$GPS_Longitude), 
+                   max(data_final.sf$GPS_Longitude), 
+                   min(data_final.sf$GPS_Longitude), 
+                   min(data_final.sf$GPS_Longitude)),
+                 c(min(data_final.sf$GPS_Latitude), 
+                   min(data_final.sf$GPS_Latitude), 
+                   max(data_final.sf$GPS_Latitude), 
+                   max(data_final.sf$GPS_Latitude), 
+                   min(data_final.sf$GPS_Latitude))) %>% 
+  list() %>% 
+  st_polygon() %>% 
+  st_sfc(crs = "+proj=longlat +datum=WGS84 +no_defs") %>% 
+  st_transform(crs = "+proj=laea") %>% 
+  st_bbox()
+
+the_box
+```
+
+We now have everything we need in place to visualize the data.
+```{r, out.width = "100%", fig.height = 3.5}
+NO_shape %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(mapping = aes(color = Corrected_Depth, alpha = 1 / Corrected_Depth), 
+          data = data_final.sf %>% arrange(Corrected_Depth), size = 1) +
+  coord_sf(xlim = c(the_box[1], the_box[3]), 
+           ylim = c(the_box[2], the_box[4])) +
+  scale_color_gradient(low = "yellow", high = "red") +
+  scale_alpha_continuous(range = c(0.2, 1), guide = "none") +
+  labs(title = expression(bold("Position of sampling points")), 
+       subtitle = "Showing the tide corrected water depth", 
+       x = expression(bold("Longitude")), 
+       y = expression(bold("Latitude")), 
+       color = "Depth", 
+       caption = "Data: NIVA") +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = "cadetblue1"), 
+        panel.grid = element_line(color = "white", size = 1))
+```
+
