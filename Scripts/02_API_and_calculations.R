@@ -27,7 +27,7 @@ source("Scripts/01_Data_tidying.R")
 
 data_API <- readRDS(file = "Data/data_API.Rdata")
 
-data_API
+data_API %>% View()
 
 read_the_API_data <- function(df) {
   df2 <- content(df) %>% 

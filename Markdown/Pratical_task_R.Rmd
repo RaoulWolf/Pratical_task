@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *I'll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.*
 
-Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr` and `tidyr`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. For data base related work, the `DBI` package provides the necessary interface, and `RSQLite` the necessary functionalities. Finally, `sf` helps in the graphical display of the measurement sites. 
+Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr`, `tidyr`, `purrr` and `ggplot2`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. For data base related work, the `DBI` package provides the necessary interface, and `RSQLite` the necessary functionalities. Finally, `sf` helps in the graphical display of the measurement sites. 
 ```{r}
 library(tidyverse)
 library(readxl)

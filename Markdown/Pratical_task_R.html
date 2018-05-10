@@ -11,7 +11,7 @@
 
 <meta name="author" content="Raoul Wolf" />
 
-<meta name="date" content="2018-05-09" />
+<meta name="date" content="2018-05-10" />
 
 <title>The Assignment in R</title>
 
@@ -306,13 +306,13 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">The Assignment in R</h1>
 <h4 class="author"><em>Raoul Wolf</em></h4>
-<h4 class="date"><em>2018-05-09</em></h4>
+<h4 class="date"><em>2018-05-10</em></h4>
 
 </div>
 
 
 <p><em>I’ll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.</em></p>
-<p>Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The <code>tidyverse</code> package collection provides a variety of tools from packages like <code>dplyr</code> and <code>tidyr</code>, <code>readxl</code> provides a robust method to directly read from Excel files, such as <code>.xls</code> and <code>.xlsx</code> files, and <code>lubridate</code> provides intuitive tools for handling of dates and times. To access the API we need functions from the <code>httr</code> package, and eventually we need to fit generalized linear models (GAM) from the <code>mgcv</code> package. For data base related work, the <code>DBI</code> package provides the necessary interface, and <code>RSQLite</code> the necessary functionalities. Finally, <code>sf</code> helps in the graphical display of the measurement sites.</p>
+<p>Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The <code>tidyverse</code> package collection provides a variety of tools from packages like <code>dplyr</code>, <code>tidyr</code>, <code>purrr</code> and <code>ggplot2</code>, <code>readxl</code> provides a robust method to directly read from Excel files, such as <code>.xls</code> and <code>.xlsx</code> files, and <code>lubridate</code> provides intuitive tools for handling of dates and times. To access the API we need functions from the <code>httr</code> package, and eventually we need to fit generalized linear models (GAM) from the <code>mgcv</code> package. For data base related work, the <code>DBI</code> package provides the necessary interface, and <code>RSQLite</code> the necessary functionalities. Finally, <code>sf</code> helps in the graphical display of the measurement sites.</p>
 <pre class="r"><code>library(tidyverse)</code></pre>
 <pre><code>## ── Attaching packages ───────────────────────────────────────────── tidyverse 1.2.1 ──</code></pre>
 <pre><code>## ✔ ggplot2 2.2.1.9000     ✔ purrr   0.2.4     
@@ -680,7 +680,6 @@ data_API</code></pre>
     mutate(Date = ymd_hm(Date), 
            Time = hm(Time),
            Time = (as.double(Time) / 60) / 60,
-           Decimal_Date = decimal_date(Date), 
            Tide = as.double(Tide))
   return(df3)
 }</code></pre>

@@ -1,6 +1,6 @@
 # Pratical task
 
-You will find scripts and Markdown files here. The project is organized with the following hierachy:
+You will find scripts and Markdown files here. The project is locally organized with the following hierachy:
 
 **Working directory**
 * *Data* includes the raw data for the assignment. For certain projects it makes sense to include two seperate directories, i.e., *Data_raw* and *Data_clean*. This is usually not part of the Git version control.
