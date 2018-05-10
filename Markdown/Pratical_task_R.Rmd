@@ -191,7 +191,6 @@ read_the_API_data <- function(df) {
     mutate(Date = ymd_hm(Date), 
            Time = hm(Time),
            Time = (as.double(Time) / 60) / 60,
-           Decimal_Date = decimal_date(Date), 
            Tide = as.double(Tide))
   return(df3)
 }
