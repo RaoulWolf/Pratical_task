@@ -1,3 +1,6 @@
+# install.packages(c("tidyverse", "RSQLite", "devtools", "sf"))
+# devtools::install_github("tidyverse/ggplot2")
+
 library(tidyverse)
 library(readxl)
 library(lubridate)
