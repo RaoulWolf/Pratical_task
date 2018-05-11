@@ -10,6 +10,7 @@ Created on Fri May 11 09:19:09 2018
 import numpy as np
 import pandas as pd 
 import requests
+from pygam import LinearGAM
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
@@ -46,7 +47,7 @@ data_raw['fromtime'] = data_raw['Date'] + 'T00:00'
 data_raw['totime'] = data_raw['Date'] + 'T23:59'
 data_raw['API'] = 'http://api.sehavniva.no/tideapi.php?tide_request=locationdata'
 data_raw['datatype'] = 'OBS'
-data_raw['file'] = 'NSKV'
+data_raw['file'] = 'XLS'
 data_raw['lang'] = 'en'
 data_raw['dst'] = '1'
 data_raw['refcode'] = 'CD'
@@ -64,6 +65,11 @@ print(data_raw.describe())
 
 for url in data_raw['URL']:
     data_raw['GET'] = requests.get(url)
+
+#data_raw['GET'][1].content
+
+data_raw['API Data'] = [x.content for x in data_raw['GET']]
+
 
 #links=['http://regsho.finra.org/FNSQshvol20170117.txt','http://regsho.finra.org/FNSQshvol20170118.txt']
 #for url in links:
