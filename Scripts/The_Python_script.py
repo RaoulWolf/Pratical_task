@@ -10,7 +10,7 @@ Created on Fri May 11 09:19:09 2018
 import numpy as np
 import pandas as pd 
 import requests
-from pygam import LinearGAM
+#from pygam import LinearGAM
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
@@ -59,18 +59,10 @@ print(data_raw)
 
 print(data_raw.describe())
 
-#data_raw['get'] = [x.request.get() for x in data_raw['URL']]
-
-#data_raw['get'] = data_raw['URL'].request.get()
-
+# retrieve the API data
 for url in data_raw['URL']:
     data_raw['GET'] = requests.get(url)
 
-#data_raw['GET'][1].content
-
+# extract the data from the API response
 data_raw['API Data'] = [x.content for x in data_raw['GET']]
 
-
-#links=['http://regsho.finra.org/FNSQshvol20170117.txt','http://regsho.finra.org/FNSQshvol20170118.txt']
-#for url in links:
-#   page = requests.get(url)
