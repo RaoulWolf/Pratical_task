@@ -9,7 +9,7 @@ Created on Fri May 11 09:19:09 2018
 # loading the necessary packages
 import numpy as np
 import pandas as pd 
-#import datetime
+import requests
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
@@ -57,3 +57,14 @@ data_raw['URL'] = data_raw['API'] + '&lat=' + data_raw['GPS Latitude'].map(str) 
 print(data_raw)
 
 print(data_raw.describe())
+
+#data_raw['get'] = [x.request.get() for x in data_raw['URL']]
+
+#data_raw['get'] = data_raw['URL'].request.get()
+
+for url in data_raw['URL']:
+    data_raw['GET'] = requests.get(url)
+
+#links=['http://regsho.finra.org/FNSQshvol20170117.txt','http://regsho.finra.org/FNSQshvol20170118.txt']
+#for url in links:
+#   page = requests.get(url)
