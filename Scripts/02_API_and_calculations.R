@@ -1,5 +1,8 @@
+# Run the tidying script first
 source("Scripts/01_Data_tidying.R")
 
+# setting up the API URLs, GETting the API data and saving it
+# This is commented out to be friendly to the server
 # data_API <- data %>%
 #   mutate(API = "http://api.sehavniva.no/tideapi.php?tide_request=locationdata",
 #          Date = parse_date_time(Date, orders = c("d.m.Y", "Y-m-d"), tz = "Europe/Oslo"),
@@ -25,10 +28,12 @@ source("Scripts/01_Data_tidying.R")
 # 
 # saveRDS(data_API, file = "Data/data_API.Rdata")
 
+# Loading the data set including the API results
 data_API <- readRDS(file = "Data/data_API.Rdata")
 
-data_API %>% View()
+data_API
 
+# Function to access the returned data
 read_the_API_data <- function(df) {
   df2 <- content(df) %>% 
     read_delim(delim = "\r\n") %>% 
@@ -46,10 +51,12 @@ read_the_API_data <- function(df) {
   return(df3)
 }
 
+# function to fit GAMs to every returned data set
 GAM_from_API_Data <- function(df) {
   gam(formula = Tide ~ s(Time, k = 24), data = df)
 }
 
+# extract the API data, fit the GAMs, predict the water level and correct the depth
 data_API <- data_API %>%
   mutate(API_Data = map(API_GET, ~ read_the_API_data(.)),
          API_GAM = map(API_Data, possibly(~ GAM_from_API_Data(.), otherwise = NA))) %>%
@@ -61,6 +68,7 @@ data_API <- data_API %>%
 
 data_API
 
+# Overview of the water levels
 data_API %>% 
   select(Water_Level) %>% 
   summarize(Average = mean(Water_Level), 
@@ -68,6 +76,7 @@ data_API %>%
             Maximum = max(Water_Level), 
             n = n())
 
+# Clean up the data set and final inspection
 data_final <- data_API %>% 
   select(-API, -lat, -lon, -datatype, -file, -lang, -dst, -refcode, -fromtime, 
          -totime, -interval, -URL, -API_GET, -API_Data, -API_GAM) %>% 
@@ -80,6 +89,6 @@ data_final
 data_final %>% 
   summary()
 
-# saveRDS(data_final, file = "Data/data_final.RData")
-
-# write_excel_csv(data_final, path = "Data/data_final.csv")
+# Saving the data set as .RData file and Excel-compatible .csv
+saveRDS(data_final, file = "Data/data_final.RData")
+write_excel_csv(data_final, path = "Data/data_final.csv")

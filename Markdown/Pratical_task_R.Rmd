@@ -11,8 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *I'll post the script without surpressing any warning or error messages. This will make the output more verbose, but hopefully also more transparent.*
 
-Before we actually start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr`, `tidyr`, `purrr` and `ggplot2`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. For data base related work, the `DBI` package provides the necessary interface, and `RSQLite` the necessary functionalities. Finally, `sf` helps in the graphical display of the measurement sites. 
+Before we start, we have to load the packages necessary for the reading in the data and manipulating it. The `tidyverse` package collection provides a variety of tools from packages like `dplyr`, `tidyr`, `purrr` and `ggplot2`, `readxl` provides a robust method to directly read from Excel files, such as `.xls` and `.xlsx` files, and `lubridate` provides intuitive tools for handling of dates and times. To access the API we need functions from the `httr` package, and eventually we need to fit generalized linear models (GAM) from the `mgcv` package. For data base related work, the `DBI` package provides the necessary interface, and `RSQLite` the necessary functionalities. Finally, `sf` helps in the graphical display of the measurement sites and `plotly` makes the graphics interactive. 
+
+*Make sure to follow [these instructions](https://github.com/r-spatial/sf) before installing `sf`*
+
+*The development versions of `ggplot2` and `plotly` from Github are necessary to visualize `sf` elements (interactively)*
+
 ```{r}
+# install.packages(c("devtools", "RSQLite", "sf", "tidyverse"))
+# devtools::install_github("tidyverse/ggplot2")
+# devtools::install_github("ropensci/plotly")
+
 library(tidyverse)
 library(readxl)
 library(lubridate)
@@ -218,7 +227,7 @@ data_API <- data_API %>%
 data_API
 ```
 
-No complaints, and it seems like for every observation reasonable data could be retrieved (no errors, warnings). We now have individual water level GAMs for each observation. Let's use these models to predict the water level at the time of measuring the water depth. Again we use `possibly()` as a safety measure
+No complaints, and it seems like for every observation reasonable data could be retrieved (no errors, warnings). We now have individual water level GAMs for each observation. Let's use these models to predict the water level at the time of measuring the water depth. Again we use `possibly()` as a safety measure.
 ```{r}
 data_API <- data_API %>% 
   mutate(Water_Level = map2_dbl(API_GAM, (as.double(hm(Time)) / 60) / 60, 
@@ -349,4 +358,34 @@ NO_shape %>%
   theme_bw() +
   theme(panel.background = element_rect(fill = "cadetblue1"), 
         panel.grid = element_line(color = "white", size = 1))
+```
+
+The plot is saved as follows:
+```{r}
+ggsave("../Figures/Final_plot.png", height = 3.5, units = "in")
+```
+
+As an experimental bonus, we add an interactive graphic using the `plotly` package. Note that we don't load the package (`library(plotly)`), as this would overwrite `dplyr`'s `filter()` function; instead, we call `ggplotly()` directly from the `plotly` package.
+```{r}
+Final_Plot <- NO_shape %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(mapping = aes(color = Corrected_Depth, alpha = 1 / Corrected_Depth, 
+                        text = paste0("Longitude: ", round(GPS_Longitude, digits = 3), " ° E\n", 
+                                      "Latitude: ", round(GPS_Latitude, digits = 3), " ° N\n", 
+                                      "Depth: ", round(Corrected_Depth, digits = 2), " m")), 
+          data = data_final.sf %>% arrange(Corrected_Depth), size = 1) +
+ coord_sf(xlim = c(the_box[1], the_box[3]), 
+           ylim = c(the_box[2], the_box[4])) +
+  scale_color_gradient(low = "yellow", high = "red") +
+  scale_alpha_continuous(range = c(0.5, 1), guide = "none") +
+  labs(title = "Position of Sampling Points", 
+       x = "Longitude", 
+       y = "Latitude", 
+       color = "Depth") +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = "cadetblue1"), 
+        panel.grid = element_line(color = "white", size = 0.5))
+
+plotly::ggplotly(Final_Plot, tooltip = c("text"))
 ```
