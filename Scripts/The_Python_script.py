@@ -88,24 +88,19 @@ data.to_sql('Data', con=conn)
 pd.read_sql_query('select avg(Depth), min(Depth), max(Depth) from Data', con=conn)
 
 # plot the measured depths on a map
-m = Basemap(width=220000,height=200000,
-            resolution='h',projection='laea',\
-            lat_ts=62.66476,lat_0=62.66476,lon_0=6.564653)
+m = Basemap(llcrnrlon=min(data['GPS Longitude']), 
+            llcrnrlat=min(data['GPS Latitude']), 
+            urcrnrlon=max(data['GPS Longitude']), 
+            urcrnrlat=max(data['GPS Latitude']), 
+            lat_0=min(data['GPS Latitude']),
+            lon_0=min(data['GPS Longitude']),
+            resolution='h', projection='laea')
 m.drawcoastlines()
-#m.fillcontinents(color='coral')
-# draw parallels and meridians.
-#m.drawparallels(np.arange(-80.,81.,20.))
-#m.drawmeridians(np.arange(-180.,181.,20.))
-m.drawmapboundary()
-# draw tissot's indicatrix to show distortion.
-#ax = plt.gca()
-#for y in np.linspace(m.ymax/20,19*m.ymax/20,9):
-#    for x in np.linspace(m.xmax/20,19*m.xmax/20,12):
-#        lon, lat = m(x,y,inverse=True)
-#        poly = m.tissot(lon,lat,1.5,100,\
-#                        facecolor='green',zorder=10,alpha=0.5)
-plt.title("Lambert Azimuthal Equal Area Projection")
+m.plot(x=data['GPS Longitude'], y=data['GPS Latitude'], 
+       marker='o', markersize=12)
+plt.title('Position of Sampling Points')
 plt.show()
-
-
-
+# ^^very basic map with a sampling postion plotted (in the lower left corner)
+# only 248 data points to go
+# ran into multiple issues with some of the more cryptic error messages à la
+# SystemError: <class 'RuntimeError'> returned a result with an error set

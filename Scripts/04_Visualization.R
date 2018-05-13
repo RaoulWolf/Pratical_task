@@ -39,12 +39,12 @@ NO_shape %>% summary()
 # Create a LAEA "box" to correctly display the area of the measurements
 the_box <- cbind(c(min(data_final.sf$GPS_Longitude), 
                    max(data_final.sf$GPS_Longitude), 
-                   max(data_final.sf$GPS_Longitude), 
-                   min(data_final.sf$GPS_Longitude), 
+                   #max(data_final.sf$GPS_Longitude), 
+                   #min(data_final.sf$GPS_Longitude), 
                    min(data_final.sf$GPS_Longitude)),
                  c(min(data_final.sf$GPS_Latitude), 
-                   min(data_final.sf$GPS_Latitude), 
-                   max(data_final.sf$GPS_Latitude), 
+                   #min(data_final.sf$GPS_Latitude), 
+                   #max(data_final.sf$GPS_Latitude), 
                    max(data_final.sf$GPS_Latitude), 
                    min(data_final.sf$GPS_Latitude))) %>% 
   list() %>% 
@@ -80,7 +80,7 @@ NO_shape %>%
        color = expression(bold("Depth")), 
        caption = "Data: NIVA") +
   theme_bw() +
-  theme(panel.background = element_rect(fill = "cadetblue1"), 
+  theme(panel.background = element_rect(fill = alpha("cadetblue1", alpha = 0.5)), 
         panel.grid = element_line(color = "white", size = 1))
 
 # Save it!
@@ -108,7 +108,7 @@ Final_Plot <- NO_shape %>%
        y = "Latitude", 
        color = "Depth") +
   theme_bw() +
-  theme(panel.background = element_rect(fill = "cadetblue1"), 
+  theme(panel.background = element_rect(fill = alpha("cadetblue1", alpha = 0.5)), 
         panel.grid = element_line(color = "white", size = 1))
 
 # Create the interactive plot

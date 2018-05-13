@@ -1,6 +1,5 @@
 # Loading the necessary packages
 library(tidyverse)
-library(readxl)
 library(DBI)
 library(RSQLite)
 
