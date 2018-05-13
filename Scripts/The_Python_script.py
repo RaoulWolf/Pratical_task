@@ -12,8 +12,8 @@ import pandas as pd
 import requests
 #from pygam import LinearGAM
 import sqlite3
-#import matplotlib.pyplot as plt
-#from mpl_toolkits.basemap import Basemap
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
@@ -88,23 +88,24 @@ data.to_sql('Data', con=conn)
 pd.read_sql_query('select avg(Depth), min(Depth), max(Depth) from Data', con=conn)
 
 # plot the measured depths on a map
-#my_map = Basemap(projection='merc', lat_0 = 62.5, lon_0 = 7,
-#    resolution = 'h', area_thresh = 0.1,
-#    llcrnrlon=5, llcrnrlat=61,
-#    urcrnrlon=9, urcrnrlat=64)
- 
-#my_map.drawcoastlines()
-#my_map.drawcountries()
-#my_map.fillcontinents(color = 'coral')
-#my_map.drawmapboundary()
- 
-#lon = 7
-#lat = 62.5
-#x,y = my_map(lon, lat)
-#my_map.plot(x, y, 'bo', markersize=12)
- 
-#plt.show()
-
+m = Basemap(width=220000,height=200000,
+            resolution='h',projection='laea',\
+            lat_ts=62.66476,lat_0=62.66476,lon_0=6.564653)
+m.drawcoastlines()
+#m.fillcontinents(color='coral')
+# draw parallels and meridians.
+#m.drawparallels(np.arange(-80.,81.,20.))
+#m.drawmeridians(np.arange(-180.,181.,20.))
+m.drawmapboundary()
+# draw tissot's indicatrix to show distortion.
+#ax = plt.gca()
+#for y in np.linspace(m.ymax/20,19*m.ymax/20,9):
+#    for x in np.linspace(m.xmax/20,19*m.xmax/20,12):
+#        lon, lat = m(x,y,inverse=True)
+#        poly = m.tissot(lon,lat,1.5,100,\
+#                        facecolor='green',zorder=10,alpha=0.5)
+plt.title("Lambert Azimuthal Equal Area Projection")
+plt.show()
 
 
 
