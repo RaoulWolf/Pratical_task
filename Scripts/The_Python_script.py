@@ -12,8 +12,8 @@ import pandas as pd
 import requests
 #from pygam import LinearGAM
 import sqlite3
-import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+#import matplotlib.pyplot as plt
+#from mpl_toolkits.basemap import Basemap
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
@@ -23,7 +23,7 @@ print(data_raw)
 print(data_raw.describe())
 
 # create new data set called data to clean up everything
-data = data_raw
+data = data_raw.copy(deep=True)
 
 # renaming columns
 data.columns = ['Date', 'Time', 'Substrate Type', 'GPS Latitude', 'GPS Longitude', 'Depth', 'Comment', 'Kelp Percentage']
@@ -78,18 +78,32 @@ print(data)
 
 print(data.describe())
 
-# open an SQLite connection in
+# open an SQLite connection in the RAM memory
 conn = sqlite3.connect(':memory:')
-c = conn.cursor()
 
 # load the data set into the SQLite data base
 data.to_sql('Data', con=conn)
 
 # calculate average, minimum and maximum of the measured depths
-pd.read_sql_query("SELECT avg(Depth), min(Depth), max(Depth) FROM Data", con=conn)
+pd.read_sql_query('select avg(Depth), min(Depth), max(Depth) from Data', con=conn)
 
 # plot the measured depths on a map
-
+#my_map = Basemap(projection='merc', lat_0 = 62.5, lon_0 = 7,
+#    resolution = 'h', area_thresh = 0.1,
+#    llcrnrlon=5, llcrnrlat=61,
+#    urcrnrlon=9, urcrnrlat=64)
+ 
+#my_map.drawcoastlines()
+#my_map.drawcountries()
+#my_map.fillcontinents(color = 'coral')
+#my_map.drawmapboundary()
+ 
+#lon = 7
+#lat = 62.5
+#x,y = my_map(lon, lat)
+#my_map.plot(x, y, 'bo', markersize=12)
+ 
+#plt.show()
 
 
 
