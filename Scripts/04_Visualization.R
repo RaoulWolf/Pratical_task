@@ -68,13 +68,16 @@ NO_shape %>%
           data = data_final.sf %>% arrange(Corrected_Depth), size = 1) +
   coord_sf(xlim = c(the_box[1], the_box[3]), 
            ylim = c(the_box[2], the_box[4])) +
-  scale_color_gradient(low = "yellow", high = "red") +
+  scale_color_gradient(low = "yellow", high = "red", 
+                       breaks = c(10, 20, 30, 40),
+                       labels = c("10 m", "20 m", "30 m", "40 m"),
+                       guide = guide_colorbar(reverse = TRUE)) +
   scale_alpha_continuous(range = c(0.5, 1), guide = "none") +
   labs(title = expression(bold("Position of Sampling Points")), 
        subtitle = "Showing the Tide-Corrected Water Depth", 
        x = expression(bold("Longitude")), 
        y = expression(bold("Latitude")), 
-       color = "Depth", 
+       color = expression(bold("Depth")), 
        caption = "Data: NIVA") +
   theme_bw() +
   theme(panel.background = element_rect(fill = "cadetblue1"), 
@@ -84,17 +87,21 @@ NO_shape %>%
 ggsave("Figures/Final_plot.png", height = 3.5, units = "in")
 
 # Create plot as and object to use interactively with plotly
-p <- NO_shape %>% 
+Final_Plot <- NO_shape %>% 
   ggplot() +
   geom_sf() +
   geom_sf(mapping = aes(color = Corrected_Depth, alpha = 1 / Corrected_Depth, 
-                        text = paste0("Longitude: ", round(GPS_Longitude, digits = 3), " ° E\n", 
-                                      "Latitude: ", round(GPS_Latitude, digits = 3), " ° N\n", 
+                        text = paste0("Longitude: ", round(GPS_Longitude, digits = 3), " °E\n", 
+                                      "Latitude: ", round(GPS_Latitude, digits = 3), " °N\n", 
+                                      # "Date: ", Date, "\n",
+                                      # "Time: ", Time, "\n",
                                       "Depth: ", round(Corrected_Depth, digits = 2), " m")), 
           data = data_final.sf %>% arrange(Corrected_Depth), size = 1) +
  coord_sf(xlim = c(the_box[1], the_box[3]), 
            ylim = c(the_box[2], the_box[4])) +
-  scale_color_gradient(low = "yellow", high = "red") +
+  scale_color_gradient(low = "yellow", high = "red", 
+                       breaks = c(10, 20, 30, 40),
+                       labels = c("10 m", "20 m", "30 m", "40 m")) +
   scale_alpha_continuous(range = c(0.5, 1), guide = "none") +
   labs(title = "Position of Sampling Points", 
        x = "Longitude", 
@@ -105,4 +112,4 @@ p <- NO_shape %>%
         panel.grid = element_line(color = "white", size = 1))
 
 # Create the interactive plot
-plotly::ggplotly(p, tooltip = c("text"))
+plotly::ggplotly(Final_Plot, tooltip = c("text"))

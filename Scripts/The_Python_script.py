@@ -11,58 +11,86 @@ import numpy as np
 import pandas as pd 
 import requests
 #from pygam import LinearGAM
+import sqlite3
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 # importing the Excel file
 data_raw = pd.read_excel("../Data/tidal_sample.xlsx", dtype={'GPS Longitude': np.str, 'GPS Latitude': np.str})
 
+print(data_raw)
+
+print(data_raw.describe())
+
+# create new data set called data to clean up everything
+data = data_raw
+
 # renaming columns
-data_raw.columns = ['Date', 'Time', 'Substrate Type', 'GPS Latitude', 'GPS Longitude', 'Depth', 'Comment', 'Kelp Percentage']
+data.columns = ['Date', 'Time', 'Substrate Type', 'GPS Latitude', 'GPS Longitude', 'Depth', 'Comment', 'Kelp Percentage']
 
 # tidying up GPS coordinates and depth (and kelp percentage)
-data_raw['Depth'] = [x.replace(',', '.') for x in data_raw['Depth']]
-data_raw['GPS Longitude'] = [x.replace(',', '.') for x in data_raw['GPS Longitude']]
-data_raw['GPS Latitude'] = [x.replace(',', '.') for x in data_raw['GPS Latitude']]
+data['Depth'] = [x.replace(',', '.') for x in data['Depth']]
+data['GPS Longitude'] = [x.replace(',', '.') for x in data['GPS Longitude']]
+data['GPS Latitude'] = [x.replace(',', '.') for x in data['GPS Latitude']]
 
-data_raw['Depth'] = pd.to_numeric(data_raw['Depth'], errors = 'coerce')
-data_raw['GPS Longitude'] = pd.to_numeric(data_raw['GPS Longitude'], errors = 'coerce')
-data_raw['GPS Latitude'] = pd.to_numeric(data_raw['GPS Latitude'], errors = 'coerce')
-data_raw['Kelp Percentage'] = pd.to_numeric(data_raw['Kelp Percentage'], errors = 'coerce')
+data['Depth'] = pd.to_numeric(data['Depth'], errors = 'coerce')
+data['GPS Longitude'] = pd.to_numeric(data['GPS Longitude'], errors = 'coerce')
+data['GPS Latitude'] = pd.to_numeric(data['GPS Latitude'], errors = 'coerce')
+data['Kelp Percentage'] = pd.to_numeric(data['Kelp Percentage'], errors = 'coerce')
 
 # remove the row with missing values
-data_raw = data_raw.dropna(subset = ['GPS Longitude', 'GPS Latitude', 'Depth'])
+data = data.dropna(subset = ['GPS Longitude', 'GPS Latitude', 'Depth'])
 
 # swap the GPS coordinates for one observation
-data_raw['GPS Longitude'], data_raw['GPS Latitude'] = np.where(data_raw['GPS Longitude'] > 10, [data_raw['GPS Latitude'], data_raw['GPS Longitude']], [data_raw['GPS Longitude'], data_raw['GPS Latitude']])
+data['GPS Longitude'], data['GPS Latitude'] = np.where(data['GPS Longitude'] > 10, [data['GPS Latitude'], data['GPS Longitude']], [data['GPS Longitude'], data['GPS Latitude']])
 
 # convert date to a "proper" date and create date time
-data_raw['Date'] = pd.to_datetime(data_raw['Date'])
-data_raw['Date'] = data_raw['Date'].astype(str)
+data['Date'] = pd.to_datetime(data['Date'])
+data['Date'] = data['Date'].astype(str)
 
-print(data_raw)
+# create elements for the construction of the API request URLs
+data['fromtime'] = data['Date'] + 'T00:00'
+data['totime'] = data['Date'] + 'T23:59'
+data['API'] = 'http://api.sehavniva.no/tideapi.php?tide_request=locationdata'
+data['datatype'] = 'OBS'
+data['file'] = 'NSKV'
+data['lang'] = 'en'
+data['dst'] = '1'
+data['refcode'] = 'CD'
+data['interval'] = '10'
 
-print(data_raw.describe())
-
-# create fromtime and totime for the API call
-data_raw['fromtime'] = data_raw['Date'] + 'T00:00'
-data_raw['totime'] = data_raw['Date'] + 'T23:59'
-data_raw['API'] = 'http://api.sehavniva.no/tideapi.php?tide_request=locationdata'
-data_raw['datatype'] = 'OBS'
-data_raw['file'] = 'XLS'
-data_raw['lang'] = 'en'
-data_raw['dst'] = '1'
-data_raw['refcode'] = 'CD'
-data_raw['interval'] = '10'
-
-data_raw['URL'] = data_raw['API'] + '&lat=' + data_raw['GPS Latitude'].map(str) + '&lon=' + data_raw['GPS Longitude'].map(str) + '&datatype=' + data_raw['datatype'] + '&file=' + data_raw['file'] + '&lang=' + data_raw['lang'] + '&dst=' + data_raw['dst'] + '&refcode=' + data_raw['refcode'] + '&fromtime=' + data_raw['fromtime'] + '&totime=' + data_raw['totime'] + '&interval=' + data_raw['interval']
-
-print(data_raw)
-
-print(data_raw.describe())
+# create the individual API request URLs
+data['URL'] = data['API'] + '&lat=' + data['GPS Latitude'].map(str) + '&lon=' + data['GPS Longitude'].map(str) + '&datatype=' + data['datatype'] + '&file=' + data['file'] + '&lang=' + data['lang'] + '&dst=' + data['dst'] + '&refcode=' + data['refcode'] + '&fromtime=' + data['fromtime'] + '&totime=' + data['totime'] + '&interval=' + data['interval']
 
 # retrieve the API data
-for url in data_raw['URL']:
-    data_raw['GET'] = requests.get(url)
+data['API Response'] = data.URL.apply(lambda url: requests.get(url).content)
 
-# extract the data from the API response
-data_raw['API Data'] = [x.content for x in data_raw['GET']]
+# tidy up the API data for use in a GAM
+#data['API Data'] = pd.read_table(data['API Response'], sep='\r\n', skiprows=9, skipfooter=1)
+#data['API Data'] = [pd.read_table(x, sep='\r\n', skiprows=9, skipfooter=1) for x in data['API Response']]
+
+# ^^ unfortunately I was not able to clean up the API data (yet) with my approaches
+# this also means I was not able to retrieve the water levels
+# and run the GAM predictions to correct the measured depths
+# however, I will continue with the SQLite query using "normal" data
+
+print(data)
+
+print(data.describe())
+
+# open an SQLite connection in
+conn = sqlite3.connect(':memory:')
+c = conn.cursor()
+
+# load the data set into the SQLite data base
+data.to_sql('Data', con=conn)
+
+# calculate average, minimum and maximum of the measured depths
+pd.read_sql_query("SELECT avg(Depth), min(Depth), max(Depth) FROM Data", con=conn)
+
+# plot the measured depths on a map
+
+
+
+
 
