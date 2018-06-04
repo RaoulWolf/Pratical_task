@@ -1,5 +1,3 @@
-TEST
-
 # NOTE: this is the skeleton script with minimal annotations
 # For more insights and explanations, please refer to the Markdown .html
 
