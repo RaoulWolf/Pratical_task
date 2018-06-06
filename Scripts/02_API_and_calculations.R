@@ -12,7 +12,7 @@ source("Scripts/01_Data_tidying.R")
 #          datatype = "OBS",
 #          file = "NSKV",
 #          lang = "en",
-#          dst = 1,
+#          dst = 0,
 #          refcode = "CD",
 #          fromtime = str_c(Date, "T", "00:00", sep = ""),
 #          totime = str_c(Date, "T", "23:59", sep = ""),
@@ -80,8 +80,7 @@ data_API %>%
 data_final <- data_API %>% 
   select(-API, -lat, -lon, -datatype, -file, -lang, -dst, -refcode, -fromtime, 
          -totime, -interval, -URL, -API_GET, -API_Data, -API_GAM) %>% 
-  mutate(Date = ymd(Date), 
-         Time = hm(Time)) %>% 
+  mutate(Date = ymd(Date)) %>% 
   arrange(Date, Time)
 
 data_final
